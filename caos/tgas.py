@@ -17,11 +17,16 @@ __all__ = ['get_table_ms']
 
 catalog_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                             os.path.pardir, 'data',
-                            'tgas_bright_g7.tsv')
+                            'tgas_bright_g_lt_12.tsv')
 
 
 def get_table_ms(plot=True, ax=None):
+    """
+    Open the TGAS catalog for all stars brighter than G < 12,
+    make CMD cuts to flag just the main sequence stars.
+    """
     table = ascii.read(catalog_path, delimiter=';', data_start=3)
+
     # floatify:
     table['BTmag'] = table['BTmag'].astype(float)
     table['VTmag'] = table['VTmag'].astype(float)
@@ -51,8 +56,7 @@ def get_table_ms(plot=True, ax=None):
     table.add_column(Column(data=dist_pc * u.pc, name='distance'))
 
     # Add a Nfov column to the table:
-    table.add_column(Column(data=[N_fov(b) for b in abs_galactic_latitude],
-                            name='N_fov'))
+    table.add_column(Column(data=N_fov(abs_galactic_latitude), name='N_fov'))
 
     M_V = Vmag - 5*(np.log10(dist_pc) + 1)
 
@@ -66,15 +70,19 @@ def get_table_ms(plot=True, ax=None):
     if plot:
         if ax is None:
             ax = plt.gca()
-        ax.scatter(b_minus_v, M_V, marker='.', s=2)
+        polygon_x = [0.6, 0.6, 2.0, 2.0, 0.6]
+        polygon_y = [color_cut(0.6) - 1, color_cut(0.6) + 1,
+                     color_cut(2) + 1, color_cut(2) - 1,
+                     color_cut(0.6) - 1]
 
-        x = np.linspace(0.5, 2)
-        y = color_cut(x)
+        H, xedges, yedges = np.histogram2d(b_minus_v, M_V, bins=1000)
 
-        #ax.plot(x, y, 'r', ls='--', alpha=0.1)
-        ax.scatter(b_minus_v[main_sequence], M_V[main_sequence], marker='.', s=2, color='r')
+        extent = [xedges.min(), xedges.max(), yedges.max(), yedges.min()]
+        ax.imshow(np.log10(H.T), extent=extent, cmap=plt.cm.Greys, aspect=0.2)
+        ax.plot(polygon_x, polygon_y, lw=2, color='r', ls='--')
 
-        ax.set(xlim=[-0.5, 3], ylim=[0, -20],
+        ax.set(xlim=[-0.5, 3], ylim=[2, -15],
                ylabel='$M_{VT}$', xlabel="BT - VT")
+
 
     return table, main_sequence

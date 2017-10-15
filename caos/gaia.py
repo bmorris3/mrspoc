@@ -35,19 +35,26 @@ def N_fov(b):
     """
     Compute the number of visits that Gaia will make (including dead time
     overhead estimate) for a target at galactic latitude ``b`` [deg].
+    Taken from Perryman et al. 2014 Table 1
     """
+    b = np.asarray(b)
     perryman2014_table1 = ascii.read(perryman2014_table1_str, format='csv',
                                      delimiter=' ')
-    cols = ['lower', 'upper', '<Nprime_fov>']
-    for lower, upper, Nfov in zip(*[perryman2014_table1[col] for col in cols]):
-        if (b < upper) and (b >= lower):
-            return Nfov
+    N_fovs = np.zeros_like(b)
+
+    for row in perryman2014_table1:
+        lower = row['lower']
+        upper = row['upper']
+        inds = np.where((b < upper) & (b >= lower))
+        if len(inds) > 0:
+            N_fovs[inds] = row['<Nprime_fov>']
+    return N_fovs
 
 
 def sigma_fov(Gmag):
     """
     Approximate Gaia astrometric uncertainty in a single measurement,
-    after Perryman 2014, Eqn. 1.
+    after Perryman 2014, Eqn. 1 - 3
     """
     sigma_att = sigma_cal = 20
     z = 10**(0.4 * (np.max([Gmag, 12*np.ones_like(Gmag)], axis=0) - 15))
