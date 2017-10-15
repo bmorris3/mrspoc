@@ -111,7 +111,14 @@ class Star(object):
     @property
     def center_of_light(self):
         """
-        Compute the center-of-light or photocenter on this star.
+        Compute the center-of-light or photocenter on this star, given its spots.
+
+        Returns
+        -------
+        x_centroid : float
+            Photocenter in the x dimension, in units of stellar radii
+        y_centroid : float
+            Photocenter in the y dimension, in units of stellar radii
         """
         x_centroid = 0
         y_centroid = 0
