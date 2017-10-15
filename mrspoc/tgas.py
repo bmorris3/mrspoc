@@ -24,6 +24,22 @@ def get_table_ms(plot=True, ax=None):
     """
     Open the TGAS catalog for all stars brighter than G < 12,
     make CMD cuts to flag just the main sequence stars.
+
+    Parameters
+    ----------
+    plot : bool (optional)
+        Make a plot of the CMD and color/mag cuts.
+    ax : `~matplotlib.pyplot.Axes` (optional)
+        If ``ax`` is not `None`, make the plot on ``ax``.
+
+    Returns
+    -------
+    table : `~astropy.table.Table`
+        Table of TGAS sources, magnitudes, parallaxes, distances, and
+        anticipated astrometric uncertainties.
+    ms : `~numpy.ndarray`
+        Boolean array, ``True`` for rows of ``table`` where the star is a
+        main sequence star within the color/mag cuts.
     """
     table = ascii.read(catalog_path, delimiter=';', data_start=3)
 
