@@ -100,5 +100,4 @@ def get_table_ms(plot=True, ax=None):
         ax.set(xlim=[-0.5, 3], ylim=[2, -15],
                ylabel='$M_{VT}$', xlabel="BT - VT")
 
-
     return table, main_sequence

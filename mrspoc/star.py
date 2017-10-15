@@ -14,7 +14,22 @@ __all__ = ['Star', 'Spot']
 
 
 class Spot(object):
+    """
+    Properties of a starspot.
+    """
     def __init__(self, x, y, r, contrast=0.7):
+        """
+        Parameters
+        ----------
+        x : float
+            X position [stellar radii]
+        y : float
+            Y position [stellar radii]
+        r : float
+            Spot radius [stellar radii]
+        contrast : float (optional)
+            Spot contrast relative to photosphere
+        """
         self.x = x
         self.y = y
         self.r = r
@@ -22,12 +37,27 @@ class Spot(object):
 
     @classmethod
     def from_latlon(cls, latitude, longitude, radius):
+        """
+        Construct a spot from latitude, longitude coordinates
+
+        Parameters
+        ----------
+        latitude : float
+            Spot latitude [deg]
+        longitude : float
+            Spot longitude [deg]
+        radius : float
+            Spot radius [stellar radii]
+        """
         x = np.sin(np.radians(longitude))
         y = np.sin(np.radians(latitude))
         return cls(x, y, radius)
 
 
 class Star(object):
+    """
+    Object defining a star and its spots.
+    """
     def __init__(self):
         self.x = 0
         self.y = 0
@@ -35,6 +65,23 @@ class Star(object):
         self.r = 1
 
     def plot(self, ax=None, col=True, col_exaggerate=1):
+        """
+        Plot a 2D projected schematic of the star and its spots.
+
+        Parameters
+        ----------
+        ax : `~matplotlib.pyplot.Axes`
+            Axis object to draw the plot on
+        col : bool (optional)
+            Show the center of light with a red "x" if `True`
+        col_exaggerate : float (optional)
+            Exaggerate the center-of-light coordinate by this factor
+
+        Returns
+        -------
+        ax : `~matplotlib.pyplot.Axes`
+            Matplotlib axis object, with the new plot on it.
+        """
 
         if ax is None:
             ax = plt.gca()
@@ -63,6 +110,9 @@ class Star(object):
 
     @property
     def center_of_light(self):
+        """
+        Compute the center-of-light or photocenter on this star.
+        """
         x_centroid = 0
         y_centroid = 0
 
