@@ -36,6 +36,18 @@ def N_fov(b):
     Compute the number of visits that Gaia will make (including dead time
     overhead estimate) for a target at galactic latitude ``b`` [deg].
     Taken from Perryman et al. 2014 Table 1
+
+    Parameters
+    ----------
+    b : `~numpy.ndarray`
+        Array of galactic latitudes
+
+    Returns
+    -------
+    N_fovs : `~numpy.ndarray`
+        Approximate number of times that Gaia will observe a target at galactic
+        latitude ``b``, after including dead time. This is the ``<Nprime_fov>``
+        column from Perrman et al. 2014 Table 1.
     """
     b = np.asarray(b)
     perryman2014_table1 = ascii.read(perryman2014_table1_str, format='csv',
