@@ -56,7 +56,7 @@ def get_table_ms(plot=True, ax=None):
 
     M_V = Vmag - 5*(np.log10(dist_pc) + 1)
 
-    b_minus_v_lower = 0.6 #0.64  # (B-V)_sun = 0.65
+    b_minus_v_lower = 0.6 # 0.64  # (B-V)_sun = 0.65
     b_minus_v_upper = 2
 
     main_sequence = ((np.abs(M_V - color_cut(b_minus_v)) < 1.) &
