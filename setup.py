@@ -1,6 +1,5 @@
 from setuptools import setup
 
-
 setup(name='mrspoc',
       version='0.1',
       description='M-dwarf Rotational Stellar Photocenter Offset Calculator',
