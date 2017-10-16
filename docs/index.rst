@@ -3,6 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. include:: references.txt
+
 Welcome to mrspoc's documentation!
 ==================================
 
@@ -10,6 +12,7 @@ Welcome to mrspoc's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   api
 
 .. automodapi:: mrspoc
 
