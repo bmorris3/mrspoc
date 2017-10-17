@@ -5,19 +5,25 @@ from __future__ import (absolute_import, division, print_function,
 import os
 import numpy as np
 from astropy.io import ascii
-from astropy.table import Column
+from astropy.table import Column, join
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 import matplotlib.pyplot as plt
+from astropy.constants import R_sun
 
 from .gaia import N_fov, sigma_fov
 
 __all__ = ['get_table_ms']
 
 
-catalog_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                            os.path.pardir, 'data',
-                            'tgas_bright_g_lt_12.tsv')
+tgas_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                         os.path.pardir, 'data', 'tgas_bright_g_lt_12.tsv')
+
+hipparcos_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                              os.path.pardir, 'data', 'hipparcos.tsv')
+
+boyajian_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                             os.path.pardir, 'data', 'boyajian2012.csv')
 
 
 def get_table_ms(plot=True, ax=None):
@@ -41,7 +47,7 @@ def get_table_ms(plot=True, ax=None):
         Boolean array, ``True`` for rows of ``table`` where the star is a
         main sequence star within the color/mag cuts.
     """
-    table = ascii.read(catalog_path, delimiter=';', data_start=3)
+    table = ascii.read(tgas_path, delimiter=';', data_start=3)
 
     # floatify:
     table['BTmag'] = table['BTmag'].astype(float)
@@ -83,6 +89,44 @@ def get_table_ms(plot=True, ax=None):
                      (b_minus_v > b_minus_v_lower) &
                      (b_minus_v < b_minus_v_upper))
 
+    main_sequence_table = table[main_sequence]
+
+    # Now match the B-V color table from HIPPARCOS to the main sequence TGAS table
+    hipparcos_table = ascii.read(hipparcos_path, delimiter=';', header_start=0,
+                                 data_start=3)
+    hipparcos_table.add_index("HIP")
+
+    main_sequence_table['HIP'][main_sequence_table['HIP'].mask] = 0
+
+    main_sequence_color_table = join(main_sequence_table, hipparcos_table,
+                                     keys='HIP')
+
+    # Add in stellar radii with color-radius relation from Boyajian 2012
+    R_star = bv_to_radius(main_sequence_color_table['B-V'].data.data)
+    main_sequence_color_table.add_column(Column(data=R_star, name='R_star'))
+
+    # Add in a column of interferometric angular diameters from Boyajian 2012 where available:
+    boyajian = ascii.read(boyajian_path)
+    ang_diams = np.zeros(len(main_sequence_color_table))
+
+    for row in boyajian:
+        ang_diams[row['HIP'] == main_sequence_color_table['HIP']] = row['D(UD)']
+
+    main_sequence_color_table.add_column(Column(data=ang_diams,
+                                                name='angular_diameter'))
+
+    boyajian_radii = main_sequence_color_table['angular_diameter'] != 0
+    half_angle = main_sequence_color_table['angular_diameter'][boyajian_radii]*u.marcsec / 2
+    distance_pc = (main_sequence_color_table['Plx_1'][boyajian_radii].data.data / 1000)**-1 * u.pc
+    measured_radii = distance_pc * np.tan(half_angle)
+
+    R_star[boyajian_radii] = measured_radii
+
+    # In radius reference column, `1`==color-radius estimate; `2`==interferometric measurement
+    refs = np.ones(len(R_star))
+    refs[boyajian_radii] = 2
+    main_sequence_color_table.add_column(Column(data=refs, name='rstar_ref'))
+
     if plot:
         if ax is None:
             ax = plt.gca()
@@ -100,4 +144,17 @@ def get_table_ms(plot=True, ax=None):
         ax.set(xlim=[-0.5, 3], ylim=[2, -15],
                ylabel='$M_{VT}$', xlabel="BT - VT")
 
-    return table, main_sequence
+    return main_sequence_color_table
+
+
+def bv_to_radius(b_minus_v):
+    X = b_minus_v
+    a0 = 0.3830
+    a1 = 0.9907
+    a2 = -0.6038
+    Y = 0
+    # Ignore metallicity
+    a3 = 0
+    a4 = 0
+    a5 = 0
+    return (a0 + a1*X + a2*X**2 + a3*X*Y + a4*Y + a5*Y**2) * R_sun
