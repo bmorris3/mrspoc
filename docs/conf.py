@@ -178,12 +178,3 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-
-
-
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
-intersphinx_mapping['astropy'] = ('http://astropy.readthedocs.io/en/latest/', None)
-intersphinx_mapping['astroquery'] = ('http://astroquery.readthedocs.io/en/latest/', None)
-intersphinx_mapping['matplotlib'] = ('https://matplotlib.org/contents.html', None)
-intersphinx_mapping['numpy'] = ('https://docs.scipy.org/doc/numpy/', None)

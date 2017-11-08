@@ -31,7 +31,7 @@ env:
         - NUMPY_VERSION=stable
         - ASTROPY_VERSION=stable
         - MAIN_CMD='python setup.py'
-        - SETUP_CMD='test -V --remote-data'
+        - SETUP_CMD='test -V'
         - CONDA_CHANNELS='astropy astropy-ci-extras conda-forge'
         - CONDA_DEPENDENCIES='matplotlib numpy scipy sphinx-automodapi numpydoc'
         - EVENT_TYPE='pull_request push'
@@ -51,7 +51,7 @@ matrix:
     include:
         # Try MacOS X
         - os: osx
-          env: SETUP_CMD='test -V --remote-data'
+          env: SETUP_CMD='test -V'
 
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
