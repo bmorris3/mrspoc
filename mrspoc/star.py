@@ -82,7 +82,6 @@ class Star(object):
         ax : `~matplotlib.pyplot.Axes`
             Matplotlib axis object, with the new plot on it.
         """
-
         if ax is None:
             ax = plt.gca()
 
