@@ -33,7 +33,7 @@ env:
         - MAIN_CMD='python setup.py'
         - SETUP_CMD='test -V'
         - CONDA_CHANNELS='astropy astropy-ci-extras conda-forge'
-        - CONDA_DEPENDENCIES='matplotlib numpy scipy sphinx-automodapi numpydoc'
+        - CONDA_DEPENDENCIES='matplotlib numpy scipy sphinx-automodapi numpydoc pytest'
         - EVENT_TYPE='pull_request push'
         - ASTROPY_USE_SYSTEM_PYTEST=1
 
@@ -50,7 +50,10 @@ matrix:
 
     include:
         # Try MacOS X
-        - os: osx
+        #- os: osx
+        #  env: SETUP_CMD='test -V'
+
+        - os: linux
           env: SETUP_CMD='test -V'
 
         # Check for sphinx doc build warnings - we do this first because it
@@ -66,13 +69,6 @@ matrix:
         - os: linux
           env: PYTHON_VERSION=2.7 ASTROPY_VERSION=lts
 
-        - os: linux
-          env: ASTROPY_VERSION=lts
-
-        # Try numpy pre-release
-        - os: linux
-          env: NUMPY_VERSION=prerelease
-               EVENT_TYPE='pull_request push cron'
 
     allow_failures:
         # Do a PEP8 test with pycodestyle
