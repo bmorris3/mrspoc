@@ -5,6 +5,8 @@
 
 .. include:: references.txt
 
+.. _index:
+
 Welcome to mrspoc's documentation!
 ==================================
 
