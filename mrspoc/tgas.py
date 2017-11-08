@@ -135,7 +135,8 @@ def get_table_ms(plot=True, ax=None):
                      color_cut(2) + 1, color_cut(2) - 1,
                      color_cut(0.6) - 1]
 
-        H, xedges, yedges = np.histogram2d(b_minus_v, M_V, bins=1000)
+        H, xedges, yedges = np.histogram2d(b_minus_v[abs(b_minus_v) > 1e-3],
+                                           M_V[abs(b_minus_v) > 1e-3], bins=1000)
 
         extent = [xedges.min(), xedges.max(), yedges.max(), yedges.min()]
         ax.imshow(np.log10(H.T), extent=extent, cmap=plt.cm.Greys, aspect=0.2)

@@ -6,7 +6,7 @@ from __future__ import (absolute_import, division, print_function,
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import quad
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Ellipse
 from matplotlib.collections import PatchCollection
 
 
@@ -90,7 +90,10 @@ class Star(object):
 
         patches = []
         for spot in self.spots:
-            patches.append(Circle((spot.x, spot.y), spot.r))
+            longitude = np.arcsin(spot.x)
+            width = np.cos(longitude) * spot.r * 2
+            height = spot.r * 2
+            patches.append(Ellipse((spot.x, spot.y), width, height))
 
         p1 = PatchCollection([Circle((0, 0), 1)], alpha=1, color='w')
         p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k')
@@ -120,20 +123,61 @@ class Star(object):
         y_centroid : float
             Photocenter in the y dimension, in units of stellar radii
         """
+        return self._centroid_analytic()
+
+    def _centroid_analytic(self):
+        """
+        Compute the stellar centroid using an analytic approximation.
+        """
         x_centroid = 0
         y_centroid = 0
+        total_flux = np.pi * self.r**2
 
         for spot in self.spots:
-            def _x_weight(x):
-                return - spot.contrast * 2 * x * np.sqrt(spot.r**2 - (x - spot.x)**2)
+            # spot_longitude = np.arcsin(spot.x)
+            # foreshortened_width = np.cos(spot_longitude)
+            # the above is equivalent to:
+            foreshortened_width = np.sqrt(1 - spot.x**2)
 
-            def _y_weight(y):
-                return - spot.contrast * 2 * y * np.sqrt(spot.r**2 - (y - spot.y)**2)
+            def _x_weighted(x):
+                return - spot.contrast * x * np.sqrt(spot.r**2 - (x - spot.x)**2 /
+                                                         foreshortened_width**2)
 
-            x_i = quad(_x_weight, spot.x-spot.r, spot.x+spot.r)[0]
-            y_i = quad(_y_weight, spot.y-spot.r, spot.y+spot.r)[0]
+            def _y_weighted(y):
+                return - spot.contrast * y * np.sqrt(spot.r**2 - (y - spot.y)**2)
+
+            b = spot.r * foreshortened_width
+            a = spot.r
+            total_flux -= (1 - spot.contrast) * np.pi * a * b
+
+            x_i = quad(_x_weighted, spot.x - spot.r*foreshortened_width,
+                       spot.x + spot.r*foreshortened_width)[0]
+            y_i = quad(_y_weighted, spot.y - spot.r, spot.y + spot.r)[0]
 
             x_centroid += x_i
             y_centroid += y_i
 
+        return x_centroid / total_flux, y_centroid / total_flux
+
+    def _centroid_numerical(self, n=1000):
+        """
+        Compute the stellar centroid using a numerical approximation.
+        """
+        image = np.zeros((n, n))
+        x = np.linspace(-1, 1, n)
+        y = np.linspace(-1, 1, n)
+        x, y = np.meshgrid(x, y)
+
+        on_star = x**2 + y**2 <= 1
+        image[on_star] = 1
+
+        for spot in self.spots:
+            foreshortened_width = np.sqrt(1 - spot.x**2)
+
+            on_spot = ((x - spot.x)**2/foreshortened_width**2 +
+                       (y - spot.y)**2 <= spot.r**2)
+            image[on_spot & on_star] = spot.contrast
+
+        x_centroid = np.sum(image * x)/np.sum(image)
+        y_centroid = np.sum(image * y)/np.sum(image)
         return x_centroid, y_centroid
