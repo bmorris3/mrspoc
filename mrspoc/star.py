@@ -13,6 +13,15 @@ from matplotlib.collections import PatchCollection
 __all__ = ['Star', 'Spot']
 
 
+def limb_darkening(r, u1=0.4987, u2=0.1772):
+    """
+    Compute the intensity at radius ``r`` for quadratic limb-darkening law
+    with parameters ``u1, u2``.
+    """
+    mu = np.sqrt(1 - r**2)
+    return (1 - u1 * (1 - mu) - u2 * (1 - mu)**2) / (1 - u1/3 - u2/6) / np.pi
+
+
 class Spot(object):
     """
     Properties of a starspot.
@@ -58,13 +67,15 @@ class Star(object):
     """
     Object defining a star and its spots.
     """
-    def __init__(self):
+    def __init__(self, u1=0.4987, u2=0.4987):
         self.x = 0
         self.y = 0
         self.spots = []
         self.r = 1
+        self.u1 = u1
+        self.u2 = u2
 
-    def plot(self, ax=None, col=True, col_exaggerate=1):
+    def plot(self, ax=None, col=True, col_exaggerate=1, ld=True):
         """
         Plot a 2D projected schematic of the star and its spots.
 
@@ -76,6 +87,8 @@ class Star(object):
             Show the center of light with a red "x" if `True`
         col_exaggerate : float (optional)
             Exaggerate the center-of-light coordinate by this factor
+        ld : bool (optional)
+            Show approximation for limb-darkening
 
         Returns
         -------
@@ -87,17 +100,27 @@ class Star(object):
 
         ax.set_facecolor('k')
 
-        patches = []
-        for spot in self.spots:
-            longitude = np.arcsin(spot.x)
-            width = np.cos(longitude) * spot.r * 2
-            height = spot.r * 2
-            patches.append(Ellipse((spot.x, spot.y), width, height))
+        if ld:
+            print(ld)
+            r = np.linspace(0, 1, 100)
+            Ir = limb_darkening(r, self.u1, self.u2)/limb_darkening(0)
+            for ri, Iri in zip(r[::-1], Ir[::-1]):
+                star = plt.Circle((0, 0), ri, color=plt.cm.Greys_r(Iri),
+                                  alpha=1.)
+                ax.add_artist(star)
+        else:
+            ax.add_artist(plt.Circle((0, 0), 1, color='w'))
 
-        p1 = PatchCollection([Circle((0, 0), 1)], alpha=1, color='w')
-        p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k')
-        ax.add_collection(p1)
-        ax.add_collection(p2)
+        if len(self.spots) > 0:
+            patches = []
+            for spot in self.spots:
+                longitude = np.arcsin(spot.x)
+                width = np.cos(longitude) * spot.r * 2
+                height = spot.r * 2
+                patches.append(Ellipse((spot.x, spot.y), width, height))
+
+            p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k')
+            ax.add_collection(p2)
 
         if col:
             x_col, y_col = self.center_of_light
@@ -130,7 +153,7 @@ class Star(object):
         """
         x_centroid = 0
         y_centroid = 0
-        total_flux = np.pi * self.r**2
+        total_flux = np.pi * self.r**2 * quad(limb_darkening, 0, 1)[0]
 
         for spot in self.spots:
             # spot_longitude = np.arcsin(spot.x)
@@ -138,16 +161,21 @@ class Star(object):
             # the above is equivalent to:
             foreshortened_width = np.sqrt(1 - spot.x**2)
 
+            ld_factor = (limb_darkening(np.sqrt(spot.x**2 + spot.y**2)) /
+                         limb_darkening(0))
+
             def _x_weighted(x):
-                return - spot.contrast * x * np.sqrt(spot.r**2 - (x - spot.x)**2 /
-                                                         foreshortened_width**2)
+                return - ((1 - spot.contrast) * x * ld_factor *
+                          np.sqrt(spot.r**2 - (x - spot.x)**2 /
+                                  foreshortened_width**2))
 
             def _y_weighted(y):
-                return - spot.contrast * y * np.sqrt(spot.r**2 - (y - spot.y)**2)
+                return - ((1 - spot.contrast) * y * ld_factor *
+                          np.sqrt(spot.r**2 - (y - spot.y)**2))
 
             b = spot.r * foreshortened_width
             a = spot.r
-            total_flux -= (1 - spot.contrast) * np.pi * a * b
+            total_flux -= (1 - spot.contrast) * np.pi * a * b * ld_factor
 
             x_i = quad(_x_weighted, spot.x - spot.r*foreshortened_width,
                        spot.x + spot.r*foreshortened_width)[0]
@@ -167,15 +195,19 @@ class Star(object):
         y = np.linspace(-1, 1, n)
         x, y = np.meshgrid(x, y)
 
-        on_star = x**2 + y**2 <= 1
-        image[on_star] = 1
+        # Limb darkening
+        irradiance = limb_darkening(np.sqrt(x**2 + y**2))/limb_darkening(0)
+
+        on_star = x**2 + y**2 <= self.r
+
+        image[on_star] = irradiance[on_star]
 
         for spot in self.spots:
             foreshortened_width = np.sqrt(1 - spot.x**2)
 
             on_spot = ((x - spot.x)**2/foreshortened_width**2 +
                        (y - spot.y)**2 <= spot.r**2)
-            image[on_spot & on_star] = spot.contrast
+            image[on_spot & on_star] *= spot.contrast
 
         x_centroid = np.sum(image * x)/np.sum(image)
         y_centroid = np.sum(image * y)/np.sum(image)
