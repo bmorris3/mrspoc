@@ -67,13 +67,27 @@ class Star(object):
     """
     Object defining a star and its spots.
     """
-    def __init__(self, u1=0.4987, u2=0.4987):
+    def __init__(self, u1=0.4987, u2=0.4987, r=1, spots=None):
+        """
+        Parameters
+        ----------
+        u1 : float (optional)
+            Quadratic limb-darkening parameter, linear term
+        u2 : float (optional)
+            Quadratic limb-darkening parameter, quadratic term
+        r : float (optional)
+            Stellar radius (default is unity)
+        spots : list (optional)
+            List of spots on this star.
+        """
         self.x = 0
         self.y = 0
-        self.spots = []
-        self.r = 1
+        self.r = r
         self.u1 = u1
         self.u2 = u2
+        if spots is None:
+            spots = []
+        self.spots = spots
 
     def plot(self, ax=None, col=True, col_exaggerate=1, ld=True):
         """
@@ -101,7 +115,6 @@ class Star(object):
         ax.set_facecolor('k')
 
         if ld:
-            print(ld)
             r = np.linspace(0, 1, 100)
             Ir = limb_darkening(r, self.u1, self.u2)/limb_darkening(0)
             for ri, Iri in zip(r[::-1], Ir[::-1]):
@@ -117,16 +130,18 @@ class Star(object):
                 longitude = np.arcsin(spot.x)
                 width = np.cos(longitude) * spot.r * 2
                 height = spot.r * 2
-                patches.append(Ellipse((spot.x, spot.y), width, height))
+                patches.append(Ellipse((spot.x, spot.y), width, height,
+                                       ec='none'))
 
-            p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k')
+            p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k',
+                                 zorder=10)
             ax.add_collection(p2)
 
         if col:
             x_col, y_col = self.center_of_light
 
             ax.scatter([x_col*col_exaggerate], [y_col*col_exaggerate],
-                       color='r', marker='x')
+                       color='r', marker='x', zorder=100)
 
         ax.set_aspect('equal')
         ax.set_xlim([-1, 1])
@@ -136,7 +151,8 @@ class Star(object):
     @property
     def center_of_light(self):
         """
-        Compute the center-of-light or photocenter on this star, given its spots.
+        Compute the center-of-light or photometric centroid for this star,
+        given its spots, and limb-darkening.
 
         Returns
         -------
@@ -184,7 +200,7 @@ class Star(object):
             x_centroid += x_i
             y_centroid += y_i
 
-        return x_centroid / total_flux, y_centroid / total_flux
+        return x_centroid/total_flux, y_centroid/total_flux
 
     def _centroid_numerical(self, n=1000):
         """
