@@ -22,6 +22,15 @@ def limb_darkening(r, u1=0.4987, u2=0.1772):
     return (1 - u1 * (1 - mu) - u2 * (1 - mu)**2) / (1 - u1/3 - u2/6) / np.pi
 
 
+def limb_darkening_normed(r, u1=0.4987, u2=0.1772):
+    """
+    Compute the intensity at radius ``r`` for quadratic limb-darkening law
+    with parameters ``u1, u2``.
+    """
+    mu = np.sqrt(1 - r**2)
+    return limb_darkening(r, u1, u2) / limb_darkening(0, u1, u2)
+
+
 class Spot(object):
     """
     Properties of a starspot.
@@ -169,36 +178,47 @@ class Star(object):
         """
         x_centroid = 0
         y_centroid = 0
-        total_flux = np.pi * self.r**2 * quad(limb_darkening, 0, 1)[0]
+        total_flux = (np.pi * self.r**2 *
+                      quad(limb_darkening_normed, 0, self.r)[0])
 
         for spot in self.spots:
-            # spot_longitude = np.arcsin(spot.x)
-            # foreshortened_width = np.cos(spot_longitude)
-            # the above is equivalent to:
+                # spot_longitude = np.arcsin(spot.x)
+                # foreshortened_width = np.cos(spot_longitude)
+                # the above is equivalent to:
             foreshortened_width = np.sqrt(1 - spot.x**2)
 
-            ld_factor = (limb_darkening(np.sqrt(spot.x**2 + spot.y**2)) /
-                         limb_darkening(0))
+            ld_factor = limb_darkening_normed(np.sqrt(spot.x**2 + spot.y**2))
 
-            def _x_weighted(x):
-                return - ((1 - spot.contrast) * x * ld_factor *
-                          np.sqrt(spot.r**2 - (x - spot.x)**2 /
-                                  foreshortened_width**2))
+            b = spot.r * foreshortened_width  # semiminor axis
+            a = spot.r  # semimajor axis
 
-            def _y_weighted(y):
-                return - ((1 - spot.contrast) * y * ld_factor *
-                          np.sqrt(spot.r**2 - (y - spot.y)**2))
+            # furthest x extent of the star at spot height y
+            star_x_limb = np.sqrt(self.r**2 - spot.y**2)
+            # furthest x extent of the spot:
+            spot_x_extremum = spot.x + b if spot.x > 0 else abs(spot.x - b)
 
-            b = spot.r * foreshortened_width
-            a = spot.r
-            total_flux -= (1 - spot.contrast) * np.pi * a * b * ld_factor
+            if star_x_limb >= spot_x_extremum:
+                spot_area = np.pi * a * b
 
-            x_i = quad(_x_weighted, spot.x - spot.r*foreshortened_width,
-                       spot.x + spot.r*foreshortened_width)[0]
-            y_i = quad(_y_weighted, spot.y - spot.r, spot.y + spot.r)[0]
+            else:
+                y_spot_upper = lambda x: np.sqrt(spot.r**2 - (x - spot.x)**2/b) + spot.y
+                y_spot_lower = lambda x: -np.sqrt(spot.r**2 - (x - spot.x)**2/b) + spot.y
+                y_star_upper = lambda x: np.sqrt(self.r**2 - x**2)
+                y_star_lower = lambda x: -np.sqrt(self.r**2 - x**2)
 
-            x_centroid += x_i
-            y_centroid += y_i
+                # start with spot on left
+                x_spot_start = spot.x - b
+                x_spot_end = self.r
+
+                spot_area_upper = quad(lambda x: y_star_upper(x), x_spot_start, x_spot_end)[0]
+                spot_area_lower = quad(lambda x: 0 - y_star_lower(x), x_spot_start, x_spot_end)[0]
+
+                spot_area = spot_area_lower + spot_area_upper
+
+            spot_flux = spot_area * ld_factor * (1 - spot.contrast)
+            x_centroid -= spot_flux * spot.x
+            y_centroid -= spot_flux * spot.y
+            total_flux -= spot_flux
 
         return x_centroid/total_flux, y_centroid/total_flux
 
