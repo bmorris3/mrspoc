@@ -6,7 +6,7 @@ import numpy as np
 import astropy.units as u
 from astropy.io import ascii
 
-__all__ = ['N_fov', 'sigma_fov']
+__all__ = ['Nprime_fov', 'sigma_fov']
 
 
 perryman2014_table1_str = (
@@ -31,15 +31,15 @@ perryman2014_table1_str = (
     85 90 77.6 62.1""")
 
 
-def N_fov(b):
+def Nprime_fov(b):
     """
-    Compute the number of visits that Gaia will make (including dead time
-    overhead estimate) for a target at galactic latitude ``b`` [deg].
-    Taken from Perryman et al. 2014 Table 1
+    Average number of field of view passages per star including dead time
+    overhead for a target at galactic latitude ``b`` [deg]. Taken from Perryman
+    et al. 2014 Table 1.
 
     Parameters
     ----------
-    b : `~numpy.ndarray`
+    b : {`~numpy.ndarray`, list, float}
         Array of galactic latitudes
 
     Returns
@@ -49,10 +49,15 @@ def N_fov(b):
         latitude ``b``, after including dead time. This is the ``<Nprime_fov>``
         column from Perrman et al. 2014 Table 1.
     """
-    b = np.asarray(b)
+    if hasattr(b, 'isscalar') and b.isscalar:
+        b = np.array([b.to(u.deg).value])
+    elif hasattr(b, 'isscalar') and not b.isscalar:
+        b = b.to(u.deg).value
+    elif not isinstance(b, np.ndarray):
+        b = np.asarray(b if hasattr(b, '__len__') else [b])
     perryman2014_table1 = ascii.read(perryman2014_table1_str, format='csv',
                                      delimiter=' ')
-    N_fovs = np.zeros_like(b)
+    N_fovs = np.zeros(len(b))
 
     for row in perryman2014_table1:
         lower = row['lower']
@@ -60,13 +65,25 @@ def N_fov(b):
         inds = np.where((b < upper) & (b >= lower))
         if len(inds) > 0:
             N_fovs[inds] = row['<Nprime_fov>']
-    return N_fovs
+    return N_fovs if len(N_fovs) > 1 else N_fovs[0]
 
 
 def sigma_fov(Gmag):
     """
-    Approximate Gaia astrometric uncertainty in a single measurement,
-    after Perryman 2014, Eqn. 1 - 3
+    Approximate Gaia astrometric uncertainty in a single measurement, i.e.
+    "the along-scan accuracy per field of view crossing", after
+    Perryman et al. 2014, Eqn. 1 - 3.
+
+    Parameters
+    ----------
+    Gmag : float or `~numpy.ndarray`
+        Gaia G band magnitude.
+
+    Returns
+    -------
+    sigma : `~astropy.units.Quantity`
+        Approximate astrometric uncertainty for a target of magnitude ``Gmag``,
+        in units of arcseconds.
     """
     sigma_att = sigma_cal = 20
     z = 10**(0.4 * (np.max([Gmag, 12*np.ones_like(Gmag)], axis=0) - 15))

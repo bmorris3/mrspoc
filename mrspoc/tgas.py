@@ -11,19 +11,18 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.constants import R_sun
 
-from .gaia import N_fov, sigma_fov
+from .gaia import Nprime_fov, sigma_fov
 
 __all__ = ['get_table_ms']
 
-
 tgas_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                         os.path.pardir, 'data', 'tgas_bright_g_lt_12.tsv')
+                         'data', 'tgas_bright_g_lt_12.tsv')
 
 hipparcos_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                              os.path.pardir, 'data', 'hipparcos.tsv')
+                              'data', 'hipparcos.tsv')
 
 boyajian_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                             os.path.pardir, 'data', 'boyajian2012.csv')
+                             'data', 'boyajian2012.csv')
 
 
 def get_table_ms(plot=True, ax=None):
@@ -54,8 +53,8 @@ def get_table_ms(plot=True, ax=None):
     table['VTmag'] = table['VTmag'].astype(float)
 
     # Compute the galactic latitude of each star, add to table
-    coords = SkyCoord(ra=table['RA_ICRS']*u.deg,
-                      dec=table['DE_ICRS']*u.deg, frame='icrs')
+    coords = SkyCoord(ra=table['RA_ICRS'] * u.deg,
+                      dec=table['DE_ICRS'] * u.deg, frame='icrs')
     galactic_coords = coords.transform_to('galactic')
     abs_galactic_latitude = abs(galactic_coords.b).degree
     table.add_column(Column(data=abs_galactic_latitude, name='b'))
@@ -69,7 +68,7 @@ def get_table_ms(plot=True, ax=None):
     b_minus_v = table['BTmag'] - table['VTmag']
 
     parallax_arcsec = parallax_mas / 1000
-    dist_pc = 1./parallax_arcsec
+    dist_pc = 1. / parallax_arcsec
 
     # Add astrometric uncertainty column to table
     table.add_column(Column(data=sigma_fov(table['<Gmag>']), name='sigma_fov'))
@@ -78,11 +77,11 @@ def get_table_ms(plot=True, ax=None):
     table.add_column(Column(data=dist_pc * u.pc, name='distance'))
 
     # Add a Nfov column to the table:
-    table.add_column(Column(data=N_fov(abs_galactic_latitude), name='N_fov'))
+    table.add_column(Column(data=Nprime_fov(abs_galactic_latitude), name='N_fov'))
 
-    M_V = Vmag - 5*(np.log10(dist_pc) + 1)
+    M_V = Vmag - 5 * (np.log10(dist_pc) + 1)
 
-    b_minus_v_lower = 0.6 # 0.64  # (B-V)_sun = 0.65
+    b_minus_v_lower = 0.6  # 0.64  # (B-V)_sun = 0.65
     b_minus_v_upper = 2
 
     main_sequence = ((np.abs(M_V - color_cut(b_minus_v)) < 1.) &
@@ -105,7 +104,8 @@ def get_table_ms(plot=True, ax=None):
     R_star = bv_to_radius(main_sequence_color_table['B-V'].data.data)
     main_sequence_color_table.add_column(Column(data=R_star, name='R_star'))
 
-    # Add in a column of interferometric angular diameters from Boyajian 2012 where available:
+    # Add in a column of interferometric angular diameters from
+    # Boyajian 2012 where available:
     boyajian = ascii.read(boyajian_path)
     ang_diams = np.zeros(len(main_sequence_color_table))
 
@@ -116,13 +116,16 @@ def get_table_ms(plot=True, ax=None):
                                                 name='angular_diameter'))
 
     boyajian_radii = main_sequence_color_table['angular_diameter'] != 0
-    half_angle = main_sequence_color_table['angular_diameter'][boyajian_radii]*u.marcsec / 2
-    distance_pc = (main_sequence_color_table['Plx_1'][boyajian_radii].data.data / 1000)**-1 * u.pc
+    half_angle = (main_sequence_color_table['angular_diameter'][boyajian_radii]
+                  * u.marcsec/2)
+    distance_pc = (main_sequence_color_table['Plx_1'][
+                       boyajian_radii].data.data / 1000)**-1 * u.pc
     measured_radii = distance_pc * np.tan(half_angle)
 
     R_star[boyajian_radii] = measured_radii
 
-    # In radius reference column, `1`==color-radius estimate; `2`==interferometric measurement
+    # In radius reference column, `1`==color-radius estimate;
+    # `2`==interferometric measurement
     refs = np.ones(len(R_star))
     refs[boyajian_radii] = 2
     main_sequence_color_table.add_column(Column(data=refs, name='rstar_ref'))
@@ -136,7 +139,8 @@ def get_table_ms(plot=True, ax=None):
                      color_cut(0.6) - 1]
 
         H, xedges, yedges = np.histogram2d(b_minus_v[abs(b_minus_v) > 1e-3],
-                                           M_V[abs(b_minus_v) > 1e-3], bins=1000)
+                                           M_V[abs(b_minus_v) > 1e-3],
+                                           bins=1000)
 
         extent = [xedges.min(), xedges.max(), yedges.max(), yedges.min()]
         ax.imshow(np.log10(H.T), extent=extent, cmap=plt.cm.Greys, aspect=0.2)
@@ -149,6 +153,21 @@ def get_table_ms(plot=True, ax=None):
 
 
 def bv_to_radius(b_minus_v):
+    """
+    Estimate radii for stars on the main sequence using their ``B-V`` color,
+    using a simple relation calibrated on interferometry by Boyajian et al. 2012
+
+    Parameters
+    ----------
+    b_minus_v : float
+        B-V color.
+
+    Returns
+    -------
+    radius : `~astropy.units.Quantity`
+        Stellar radius.
+    """
+    # Boyajian 2012
     X = b_minus_v
     a0 = 0.3830
     a1 = 0.9907
@@ -158,4 +177,5 @@ def bv_to_radius(b_minus_v):
     a3 = 0
     a4 = 0
     a5 = 0
-    return (a0 + a1*X + a2*X**2 + a3*X*Y + a4*Y + a5*Y**2) * R_sun
+    return (a0 + a1 * X + a2 * X ** 2 + a3 * X * Y +
+            a4 * Y + a5 * Y ** 2) * R_sun

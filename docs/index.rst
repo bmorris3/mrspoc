@@ -3,25 +3,27 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. _mrspoc:
+
 .. include:: references.txt
 
-.. _index:
+``mrspoc``: Stellar Activity Cycles with Gaia
+=============================================
 
-Welcome to mrspoc's documentation!
-==================================
+``mrspoc`` is a Python toolkit for estimating stellar centroid jitter due to
+magnetic activity cycles for Gaia target stars.
+
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
+   getting_started
    api
-
-.. automodapi:: mrspoc
-
 
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
