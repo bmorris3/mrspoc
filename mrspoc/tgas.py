@@ -15,14 +15,18 @@ from .gaia import Nprime_fov, sigma_fov
 
 __all__ = ['get_table_ms']
 
-tgas_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                         'data', 'tgas_bright_g_lt_12.tsv')
+environment_variable = 'MRSPOC_DATA_DIR'
+data_dir_path = os.getenv(environment_variable,
+                          os.path.dirname(os.path.abspath(__file__)))
 
-hipparcos_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                              'data', 'hipparcos.tsv')
+tgas_path = os.path.join(os.path.abspath(data_dir_path),
+                         'tgas_bright_g_lt_12.tsv')
 
-boyajian_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                             'data', 'boyajian2012.csv')
+hipparcos_path = os.path.join(os.path.abspath(data_dir_path),
+                              'hipparcos.tsv')
+
+boyajian_path = os.path.join(os.path.abspath(data_dir_path),
+                             'boyajian2012.csv')
 
 
 def get_table_ms(plot=True, ax=None):

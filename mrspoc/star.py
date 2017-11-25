@@ -170,7 +170,7 @@ class Star(object):
 
         return centroid
 
-    def _centroid_analytic(self, plot=False):
+    def _centroid_analytic(self):
         """
         Compute the stellar centroid using an analytic approximation.
 
@@ -183,8 +183,11 @@ class Star(object):
         """
         x_centroid = 0
         y_centroid = 0
-        total_flux = (np.pi * self.r**2 *
-                      quad(self.limb_darkening_normed, 0, self.r)[0])
+
+        # Morris et al 2017, Eqn 1
+        total_flux = (2 * np.pi *
+                      quad(lambda r: r * self.limb_darkening_normed(r),
+                           0, self.r)[0])
 
         for spot in self.spots:
             # spot_longitude = np.arcsin(spot.x)
@@ -192,21 +195,22 @@ class Star(object):
             # the above is equivalent to:
             foreshortened_width = np.sqrt(self.r**2 - spot.x**2)
 
-            r = np.sqrt(spot.x**2 + spot.y**2)
-            ld_factor = self.limb_darkening_normed(r)
-
+            # Morris et al 2017, Eqn 2
+            r_spot = np.sqrt(spot.x**2 + spot.y**2)
             b = spot.r * foreshortened_width  # semiminor axis
             a = spot.r  # semimajor axis
             spot_area = np.pi * a * b
+            spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
+                         (1 - spot.contrast))
 
-            spot_flux = spot_area * ld_factor * (1 - spot.contrast)
-            x_centroid -= spot_flux * spot.x
-            y_centroid -= spot_flux * spot.y
-            total_flux -= spot_flux
+            # Morris et al 2017, Eqn 3-4
+            x_centroid += spot_flux * spot.x
+            y_centroid += spot_flux * spot.y
+            total_flux += spot_flux
 
         return x_centroid/total_flux, y_centroid/total_flux
 
-    def _centroid_numerical(self, n=2000):
+    def _centroid_numerical(self, n=3000, delete_arrays_after_use=True):
         """
         Compute the stellar centroid using a numerical approximation.
 
@@ -230,7 +234,7 @@ class Star(object):
         # Limb darkening
         irradiance = self.limb_darkening_normed(np.sqrt(x**2 + y**2))
 
-        on_star = x**2 + y**2 <= self.r
+        on_star = x**2 + y**2 <= self.r**2
 
         image[on_star] = irradiance[on_star]
 
@@ -241,8 +245,21 @@ class Star(object):
                        (y - spot.y)**2 <= spot.r**2)
             image[on_spot & on_star] *= spot.contrast
 
+            # Validation:
+            # r_spot = np.sqrt(spot.x**2 + spot.y**2)
+            # image[on_spot & on_star] = spot.contrast * self.limb_darkening_normed(r_spot)
+
         x_centroid = np.sum(image * x)/np.sum(image)
         y_centroid = np.sum(image * y)/np.sum(image)
+
+        if delete_arrays_after_use:
+            del image
+            del on_star
+            del on_spot
+            del x
+            del y
+            del irradiance
+
         return x_centroid, y_centroid
 
     def limb_darkening(self, r):
