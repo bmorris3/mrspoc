@@ -16,7 +16,7 @@ from .gaia import Nprime_fov, sigma_fov
 __all__ = ['get_table_ms']
 
 environment_variable = 'MRSPOC_DATA_DIR'
-data_dir_path = os.getenv(environment_variable)
+data_dir_path = os.getenv(environment_variable, '.')
 
 tgas_path = os.path.join(os.path.abspath(data_dir_path),
                          'tgas_bright_g_lt_12.tsv')
