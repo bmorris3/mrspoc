@@ -18,9 +18,7 @@ Creating a spotted star
 -----------------------
 
 Suppose you'd like to estimate the stellar centroid jitter for a star with a
-spot. We begin by creating a `~mrspoc.Star` object:
-
-.. code-block:: python
+spot. We begin by creating a `~mrspoc.Star` object::
 
     from mrspoc import Star
     star = Star(u1=0.5, u2=0.2)
@@ -30,9 +28,7 @@ the Sun in the optical.
 
 Now let's add a `~mrspoc.Spot` to the spot list attribute ``Star.spots``, which
 is placed half a stellar radius in the positive x-direction, with radius 10% of
-the radius of the star:
-
-.. code-block:: python
+the radius of the star::
 
     from mrspoc import Spot
     spot = Spot(x=0.5, y=0, r=0.1, contrast=0.7)
@@ -43,18 +39,14 @@ the atmosphere in the spot as a fraction of the flux in the quiescent
 photosphere.
 
 We can print the apparent stellar centroid using the
-``~mrspoc.Star.center_of_light`` attribute:
-
-.. code-block:: python
+``~mrspoc.Star.center_of_light`` attribute::
 
     >>> star.center_of_light  # doctest: +FLOAT_CMP
     (-0.0013829556756940378, 0.0)
 
 The centroid is in the negative x direction since the spot is in the positive
 x direction. We can see what this star and spot configuration look like with the
-`~mrspoc.Star.plot` function:
-
-.. code-block:: python
+`~mrspoc.Star.plot` function::
 
     star.plot(col_exaggerate=100)
 
@@ -84,9 +76,7 @@ precision, using the relations from
 `Perryman et al. 2014 <http://arxiv.org/abs/1411.1173>`_.
 
 You can predict the number of times Gaia will observe a given star with
-`~mrspoc.Nprime_fov`, for a star at galactic latitude ``b``:
-
-.. code-block:: python
+`~mrspoc.Nprime_fov`, for a star at galactic latitude ``b``::
 
     >>> from mrspoc import Nprime_fov
     >>> import astropy.units as u
@@ -100,9 +90,7 @@ The results are non-integers because they are the mean number of visits for
 stars near each galactic latitude.
 
 You can compute the galactic latitude ``b`` for a target given its
-`~astropy.coordinates.SkyCoord` like this:
-
-.. code-block:: python
+`~astropy.coordinates.SkyCoord` like this::
 
     >>> from astropy.coordinates import SkyCoord, Galactic
     >>> import astropy.units as u
@@ -118,9 +106,7 @@ You can compute the galactic latitude ``b`` for a target given its
 You can compute the expected astrometric precision on a given target as a
 function of its Gaia bandpass ``G`` magnitude with `~mrspoc.sigma_fov`, again
 taking from `Perryman et al. 2014 <http://arxiv.org/abs/1411.1173>`_, this time
-from Equations 1-3:
-
-.. code-block:: python
+from Equations 1-3::
 
     >>> from mrspoc import sigma_fov
     >>> sigma_fov(6.5)
