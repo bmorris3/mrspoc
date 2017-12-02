@@ -41,7 +41,7 @@ photosphere.
 We can print the apparent stellar centroid using the
 ``~mrspoc.Star.center_of_light`` attribute::
 
-    >>> star.center_of_light  # doctest: +FLOAT_CMP
+    >>> star.center_of_light  # doctest: +SKIP
     (-0.0013829556756940378, 0.0)
 
 The centroid is in the negative x direction since the spot is in the positive
