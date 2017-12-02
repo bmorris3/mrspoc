@@ -12,6 +12,14 @@ Clone this repository:
 ```bash
 git clone https://github.com/bmorris3/mrspoc.git
 ```
+Run this command to download a local copy of the required TGAS data, Hipparcos, 
+and  interferometric radius tables:
+```
+cd mrspoc
+python download_data.py
+```
+You can delete the data archive `data.tar.gz`.
+
 Create an environment variable that contains the path to the `data/` directory, 
 called `MRSPOC_DATA_DIR`. For example, add the following line to your `~/.cshrc`:
 ```
