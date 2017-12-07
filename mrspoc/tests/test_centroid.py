@@ -4,7 +4,7 @@ import pytest
 from ..star import Star, Spot
 
 
-@pytest.mark.parametrize('x', (0.8, 0.6, 0.4, 0.2, 0.0))
+@pytest.mark.parametrize('x', (0.95, 0.8, 0.6, 0.4, 0.2, 0.0))
 def test_centroid_small_spots(x):
     """
     python -c "from mrspoc.tests.test import test_centroid_small_spots as f; f()"
@@ -19,7 +19,7 @@ def test_centroid_small_spots(x):
     assert diff < 5e-5
 
 
-@pytest.mark.parametrize('x', (0.8, 0.6, 0.4, 0.2, 0.0))
+@pytest.mark.parametrize('x', (0.95, 0.8, 0.6, 0.4, 0.2, 0.0))
 def test_centroid_large_spots(x):
     """
     python -c "from mrspoc.tests.test import test_centroid_large_spots as f; f()"

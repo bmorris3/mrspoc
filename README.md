@@ -25,6 +25,10 @@ called `MRSPOC_DATA_DIR`. For example, add the following line to your `~/.cshrc`
 ```
 setenv MRSPOC_DATA_DIR '/path/to/mrspoc/data/'
 ```
+or `~/.bashrc`: 
+```
+MRSPOC_DATA_DIR='/path/to/mrspoc/data/'
+```
 Change directories into the repository, and run: 
 ```bash
 python setup.py install

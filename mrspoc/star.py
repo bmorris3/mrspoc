@@ -109,42 +109,47 @@ class Star(object):
         if ax is None:
             ax = plt.gca()
 
-        ax.set_facecolor('k')
+        # ax.set_facecolor('k')
 
-        if ld:
-            r = np.linspace(0, 1, 100)
-            Ir = self.limb_darkening_normed(r)
-            for ri, Iri in zip(r[::-1], Ir[::-1]):
-                star = plt.Circle((0, 0), ri, color=plt.cm.Greys_r(Iri),
-                                  alpha=1.)
-                ax.add_artist(star)
-        else:
-            ax.add_artist(plt.Circle((0, 0), self.r, color='w'))
+        # if ld:
+        #     r = np.linspace(0, 1, 100)
+        #     Ir = self.limb_darkening_normed(r)
+        #     for ri, Iri in zip(r[::-1], Ir[::-1]):
+        #         star = plt.Circle((0, 0), ri, color=plt.cm.Greys_r(Iri),
+        #                           alpha=1.)
+        #         ax.add_artist(star)
+        # else:
+        #     ax.add_artist(plt.Circle((0, 0), self.r, color='w'))
+        #
+        # if len(self.spots) > 0:
+        #     patches = []
+        #     for spot in self.spots:
+        #         longitude = np.arcsin(spot.x)
+        #         latitude = np.arcsin(spot.y)
+        #         width = np.cos(longitude) * spot.r * 2
+        #         height = np.cos(latitude) * spot.r * 2
+        #         patches.append(Ellipse((spot.x, spot.y), width, height,
+        #                                ec='none'))
+        #
+        #     p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k',
+        #                          zorder=10)
+        #     ax.add_collection(p2)
+        #
+        # if col:
+        #     x_col, y_col = self.center_of_light
+        #
+        #     ax.scatter([x_col*col_exaggerate], [y_col*col_exaggerate],
+        #                color='r', marker='x', zorder=100)
 
-        if len(self.spots) > 0:
-            patches = []
-            for spot in self.spots:
-                longitude = np.arcsin(spot.x)
-                width = np.cos(longitude) * spot.r * 2
-                height = spot.r * 2
-                patches.append(Ellipse((spot.x, spot.y), width, height,
-                                       ec='none'))
+        _, _, image = self._centroid_numerical(return_image=True)
 
-            p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k',
-                                 zorder=10)
-            ax.add_collection(p2)
-
-        if col:
-            x_col, y_col = self.center_of_light
-
-            ax.scatter([x_col*col_exaggerate], [y_col*col_exaggerate],
-                       color='r', marker='x', zorder=100)
-
+        ax.imshow(image, origin='lower', interpolation='nearest',
+                  cmap=plt.cm.Greys_r, extent=[-1, 1, -1, 1])
         ax.set_aspect('equal')
         ax.set_xlim([-1, 1])
         ax.set_ylim([-1, 1])
-        ax.set_xlabel('x [$R_\star$]')
-        ax.set_ylabel('y [$R_\star$]')
+        ax.set_xlabel('x [$R_\star$]', fontsize=14)
+        ax.set_ylabel('y [$R_\star$]', fontsize=14)
         return ax
 
     @property
@@ -193,13 +198,11 @@ class Star(object):
             # spot_longitude = np.arcsin(spot.x)
             # foreshortened_width = np.cos(spot_longitude)
             # the above is equivalent to:
-            foreshortened_width = np.sqrt(self.r**2 - spot.x**2)
+            # foreshortened_width = np.sqrt(self.r**2 - spot.x**2)
 
             # Morris et al 2017, Eqn 2
             r_spot = np.sqrt(spot.x**2 + spot.y**2)
-            b = spot.r * foreshortened_width  # semiminor axis
-            a = spot.r  # semimajor axis
-            spot_area = np.pi * a * b
+            spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
             spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
                          (1 - spot.contrast))
 
@@ -210,7 +213,8 @@ class Star(object):
 
         return x_centroid/total_flux, y_centroid/total_flux
 
-    def _centroid_numerical(self, n=3000, delete_arrays_after_use=True):
+    def _centroid_numerical(self, n=3000, delete_arrays_after_use=True,
+                            return_image=False):
         """
         Compute the stellar centroid using a numerical approximation.
 
@@ -239,10 +243,17 @@ class Star(object):
         image[on_star] = irradiance[on_star]
 
         for spot in self.spots:
-            foreshortened_width = np.sqrt(self.r**2 - spot.x**2)
+            r_spot = np.sqrt(spot.x**2 + spot.y**2)
+            foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
 
-            on_spot = ((x - spot.x)**2/foreshortened_width**2 +
-                       (y - spot.y)**2 <= spot.r**2)
+            a = spot.r  # Semi-major axis
+            b = spot.r * foreshorten_semiminor_axis  # Semi-minor axis
+            A = np.pi/2 + np.arctan2(spot.y, spot.x)  # Semi-major axis rotation
+            on_spot = (((x - spot.x) * np.cos(A) +
+                        (y - spot.y) * np.sin(A))**2 / a**2 +
+                       ((x - spot.x) * np.sin(A) -
+                        (y - spot.y) * np.cos(A))**2 / b**2 <= self.r**2)
+
             image[on_spot & on_star] *= spot.contrast
 
             # Validation:
@@ -253,12 +264,17 @@ class Star(object):
         y_centroid = np.sum(image * y)/np.sum(image)
 
         if delete_arrays_after_use:
-            del image
             del on_star
             del on_spot
             del x
             del y
             del irradiance
+
+        if return_image:
+            return x_centroid, y_centroid, image
+
+        if delete_arrays_after_use:
+            del image
 
         return x_centroid, y_centroid
 
