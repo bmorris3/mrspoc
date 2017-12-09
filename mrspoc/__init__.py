@@ -11,3 +11,4 @@ if not _ASTROPY_SETUP_:
     from .star import *
     from .tgas import *
     from .gaia import *
+    from .sun import *

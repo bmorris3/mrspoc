@@ -6,9 +6,11 @@ from __future__ import (absolute_import, division, print_function,
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import quad
-from matplotlib.patches import Ellipse
-from matplotlib.collections import PatchCollection
+import astropy.units as u
+from astropy.coordinates import UnitSphericalRepresentation, CartesianRepresentation
+from astropy.coordinates.matrix_utilities import rotation_matrix, matrix_product
 
+from .sun import draw_random_sunspot_latitudes, draw_random_sunspot_radii
 
 __all__ = ['Star', 'Spot']
 
@@ -17,7 +19,7 @@ class Spot(object):
     """
     Properties of a starspot.
     """
-    def __init__(self, x, y, r, contrast=0.7):
+    def __init__(self, x=None, y=None, z=None, r=None, contrast=0.7):
         """
         Parameters
         ----------
@@ -32,11 +34,14 @@ class Spot(object):
         """
         self.x = x
         self.y = y
+        if z is None:
+            z = np.sqrt(r**2 - x**2 - y**2)
+        self.z = z
         self.r = r
         self.contrast = contrast
 
     @classmethod
-    def from_latlon(cls, latitude, longitude, radius):
+    def from_latlon(cls, latitude, longitude, stellar_inclination, radius):
         """
         Construct a spot from latitude, longitude coordinates
 
@@ -46,20 +51,94 @@ class Spot(object):
             Spot latitude [deg]
         longitude : float
             Spot longitude [deg]
+        stellar_inclination : float
+            Stellar inclination angle, measured away from the line of sight,
+            in [deg].
         radius : float
             Spot radius [stellar radii]
         """
-        x = np.sin(np.radians(longitude))
-        y = np.sin(np.radians(latitude))
-        return cls(x, y, radius)
+
+        cartesian = latlon_to_cartesian(latitude, longitude,
+                                        stellar_inclination)
+
+        return cls(x=cartesian.x.value, y=cartesian.y.value,
+                   z=cartesian.z.value, r=radius)
+
+    @classmethod
+    def from_sunspot_distribution(cls, stellar_inclination, mean_latitude=15,
+                                  contrast=0.7, radius_multiplier=1):
+        """
+        Parameters
+        ----------
+        stellar_inclination : float
+            Stellar inclination angle, measured away from the line of sight,
+            in [deg].
+        mean_latitude : float
+            Define the mean absolute latitude of the two symmetric active
+            latitudes, where ``mean_latitude > 0``.
+        contrast : float (optional)
+            Spot contrast relative to photosphere. Default is the area-weighted
+            mean sunspot contrast (``c=0.7``).
+        """
+        lat = draw_random_sunspot_latitudes(n=1, mean_latitude=mean_latitude)[0]
+        lon = 2*np.pi * np.random.rand() * u.rad
+        radius = draw_random_sunspot_radii(n=1)[0]
+
+        cartesian = latlon_to_cartesian(lat, lon, stellar_inclination)
+
+        return cls(x=cartesian.x.value, y=cartesian.y.value,
+                   z=cartesian.z.value, r=radius*radius_multiplier,
+                   contrast=contrast)
+
+    def __repr__(self):
+        return ("<Spot: x={0}, y={1}, z={2}, r={3}>"
+                .format(self.x, self.y, self.z, self.r))
+
+
+def latlon_to_cartesian(latitude, longitude, stellar_inclination):
+    """
+    Convert coordinates in latitude/longitude for a star with a given
+    stellar inclination into cartesian coordinates.
+
+    The X-Y plane is the sky plane: x is aligned with the stellar equator, y is
+    aligned with the stellar rotation axis.
+
+    Parameters
+    ----------
+    latitude : float or `~astropy.units.Quantity`
+        Spot latitude. Will assume unit=deg if none is specified.
+    longitude : float or `~astropy.units.Quantity`
+        Spot longitude. Will assume unit=deg if none is specified.
+    stellar_inclination : float
+        Stellar inclination angle, measured away from the line of sight,
+        in [deg].
+
+    Returns
+    -------
+    cartesian : `~astropy.coordinates.CartesianRepresentation`
+        Cartesian representation in the frame described above.
+    """
+
+    if not hasattr(longitude, 'unit') and not hasattr(latitude, 'unit'):
+        longitude *= u.deg
+        latitude *= u.deg
+
+    c = UnitSphericalRepresentation(longitude, latitude)
+    cartesian = c.to_cartesian()
+
+    rotate_about_z = rotation_matrix(90*u.deg, axis='z')
+    rotate_is = rotation_matrix(stellar_inclination*u.deg, axis='y')
+    transform_matrix = matrix_product(rotate_about_z, rotate_is)
+    cartesian = cartesian.transform(transform_matrix)
+    return cartesian
 
 
 class Star(object):
     """
     Object defining a star.
     """
-    def __init__(self, u1=0.4987, u2=0.1772, r=1, radius_threshold=0.1,
-                 spots=None):
+    def __init__(self, spots=None, u1=0.4987, u2=0.1772, r=1,
+                 radius_threshold=0.1, inclination=None):
         """
         Parameters
         ----------
@@ -75,18 +154,44 @@ class Star(object):
             solution.
         spots : list (optional)
             List of spots on this star.
+        inclination : `~astropy.units.Quantity`
+            Stellar inclination. Default is 90 deg.
         """
+        if spots is None:
+            spots = []
+        self.spots = spots
+
         self.x = 0
         self.y = 0
         self.r = r
         self.u1 = u1
         self.u2 = u2
-        if spots is None:
-            spots = []
-        self.spots = spots
-        self.radius_threshold = radius_threshold
 
-    def plot(self, ax=None, col=True, col_exaggerate=1, ld=True):
+        if inclination is None:
+            inclination = 90*u.deg
+
+        self._inclination = inclination
+        self.radius_threshold = radius_threshold
+        self.rotations_applied = 0 * u.deg
+
+    @property
+    def inclination(self):
+        return self._inclination
+
+    @inclination.setter
+    def inclination(self, new_inclination):
+        previous_inclination = self._inclination
+        rot_new_inc = rotation_matrix(previous_inclination - new_inclination,
+                                      axis='x')
+        for spot in self.spots:
+            cartesian = CartesianRepresentation(x=spot.x, y=spot.y, z=spot.z
+                                                ).transform(rot_new_inc)
+            spot.x = cartesian.x.value
+            spot.y = cartesian.y.value
+            spot.z = cartesian.z.value
+        self._inclination = new_inclination
+
+    def plot(self, n=3000, ax=None, col=True, col_exaggerate=1):
         """
         Plot a 2D projected schematic of the star and its spots.
 
@@ -98,8 +203,8 @@ class Star(object):
             Show the center of light with a red "x" if `True`
         col_exaggerate : float (optional)
             Exaggerate the center-of-light coordinate by this factor
-        ld : bool (optional)
-            Show approximation for limb-darkening
+        n : int
+            Number of pixels per side in the image.
 
         Returns
         -------
@@ -109,43 +214,16 @@ class Star(object):
         if ax is None:
             ax = plt.gca()
 
-        # ax.set_facecolor('k')
-
-        # if ld:
-        #     r = np.linspace(0, 1, 100)
-        #     Ir = self.limb_darkening_normed(r)
-        #     for ri, Iri in zip(r[::-1], Ir[::-1]):
-        #         star = plt.Circle((0, 0), ri, color=plt.cm.Greys_r(Iri),
-        #                           alpha=1.)
-        #         ax.add_artist(star)
-        # else:
-        #     ax.add_artist(plt.Circle((0, 0), self.r, color='w'))
-        #
-        # if len(self.spots) > 0:
-        #     patches = []
-        #     for spot in self.spots:
-        #         longitude = np.arcsin(spot.x)
-        #         latitude = np.arcsin(spot.y)
-        #         width = np.cos(longitude) * spot.r * 2
-        #         height = np.cos(latitude) * spot.r * 2
-        #         patches.append(Ellipse((spot.x, spot.y), width, height,
-        #                                ec='none'))
-        #
-        #     p2 = PatchCollection(patches, alpha=(1-spot.contrast), color='k',
-        #                          zorder=10)
-        #     ax.add_collection(p2)
-        #
-        # if col:
-        #     x_col, y_col = self.center_of_light
-        #
-        #     ax.scatter([x_col*col_exaggerate], [y_col*col_exaggerate],
-        #                color='r', marker='x', zorder=100)
-
-        _, _, image = self._centroid_numerical(return_image=True)
+        _, _, image = self._centroid_numerical(n=n, return_image=True)
 
         ax.imshow(image, origin='lower', interpolation='nearest',
                   cmap=plt.cm.Greys_r, extent=[-1, 1, -1, 1])
         ax.set_aspect('equal')
+        if col:
+            x_col, y_col = self.center_of_light
+
+            ax.scatter([x_col*col_exaggerate], [y_col*col_exaggerate],
+                       color='r', marker='x', zorder=100)
         ax.set_xlim([-1, 1])
         ax.set_ylim([-1, 1])
         ax.set_xlabel('x [$R_\star$]', fontsize=14)
@@ -165,7 +243,7 @@ class Star(object):
         y_centroid : float
             Photocenter in the y dimension, in units of stellar radii
         """
-        large_spots = np.any(np.array([s.r for s in self.spots]) >
+        large_spots = np.any(np.array([s.r for s in self.spots if s.z > 0]) >
                              self.radius_threshold)
 
         if large_spots:
@@ -175,7 +253,7 @@ class Star(object):
 
         return centroid
 
-    def _centroid_analytic(self):
+    def _centroid_analytic(self, return_total_flux=False):
         """
         Compute the stellar centroid using an analytic approximation.
 
@@ -185,6 +263,9 @@ class Star(object):
             Photocenter in the x dimension, in units of stellar radii
         y_centroid : float
             Photocenter in the y dimension, in units of stellar radii
+        return_total_flux : bool
+            If true, return the X centroid, Y centroid, and the total stellar
+            flux.
         """
         x_centroid = 0
         y_centroid = 0
@@ -195,23 +276,21 @@ class Star(object):
                            0, self.r)[0])
 
         for spot in self.spots:
-            # spot_longitude = np.arcsin(spot.x)
-            # foreshortened_width = np.cos(spot_longitude)
-            # the above is equivalent to:
-            # foreshortened_width = np.sqrt(self.r**2 - spot.x**2)
+            if spot.z > 0:
+                # Morris et al 2017, Eqn 2
+                r_spot = np.sqrt(spot.x**2 + spot.y**2)
+                spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
+                spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
+                             (1 - spot.contrast))
 
-            # Morris et al 2017, Eqn 2
-            r_spot = np.sqrt(spot.x**2 + spot.y**2)
-            spot_area = np.pi * spot.r**2 * np.sqrt(1 - (r_spot/self.r)**2)
-            spot_flux = (-1 * spot_area * self.limb_darkening_normed(r_spot) *
-                         (1 - spot.contrast))
-
-            # Morris et al 2017, Eqn 3-4
-            x_centroid += spot_flux * spot.x
-            y_centroid += spot_flux * spot.y
-            total_flux += spot_flux
-
-        return x_centroid/total_flux, y_centroid/total_flux
+                # Morris et al 2017, Eqn 3-4
+                x_centroid += spot_flux * spot.x
+                y_centroid += spot_flux * spot.y
+                total_flux += spot_flux
+        if not return_total_flux:
+            return x_centroid/total_flux, y_centroid/total_flux
+        else:
+            return x_centroid/total_flux, y_centroid/total_flux, total_flux
 
     def _centroid_numerical(self, n=3000, delete_arrays_after_use=True,
                             return_image=False):
@@ -243,29 +322,27 @@ class Star(object):
         image[on_star] = irradiance[on_star]
 
         for spot in self.spots:
-            r_spot = np.sqrt(spot.x**2 + spot.y**2)
-            foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
+            if spot.z > 0:
+                r_spot = np.sqrt(spot.x**2 + spot.y**2)
+                foreshorten_semiminor_axis = np.sqrt(1 - (r_spot/self.r)**2)
 
-            a = spot.r  # Semi-major axis
-            b = spot.r * foreshorten_semiminor_axis  # Semi-minor axis
-            A = np.pi/2 + np.arctan2(spot.y, spot.x)  # Semi-major axis rotation
-            on_spot = (((x - spot.x) * np.cos(A) +
-                        (y - spot.y) * np.sin(A))**2 / a**2 +
-                       ((x - spot.x) * np.sin(A) -
-                        (y - spot.y) * np.cos(A))**2 / b**2 <= self.r**2)
+                a = spot.r  # Semi-major axis
+                b = spot.r * foreshorten_semiminor_axis  # Semi-minor axis
+                A = np.pi/2 + np.arctan2(spot.y, spot.x)  # Semi-major axis rotation
+                on_spot = (((x - spot.x) * np.cos(A) +
+                            (y - spot.y) * np.sin(A))**2 / a**2 +
+                           ((x - spot.x) * np.sin(A) -
+                            (y - spot.y) * np.cos(A))**2 / b**2 <= self.r**2)
 
-            image[on_spot & on_star] *= spot.contrast
-
-            # Validation:
-            # r_spot = np.sqrt(spot.x**2 + spot.y**2)
-            # image[on_spot & on_star] = spot.contrast * self.limb_darkening_normed(r_spot)
+                image[on_spot & on_star] *= spot.contrast
 
         x_centroid = np.sum(image * x)/np.sum(image)
         y_centroid = np.sum(image * y)/np.sum(image)
 
         if delete_arrays_after_use:
             del on_star
-            del on_spot
+            if len(self.spots) > 0:
+                del on_spot
             del x
             del y
             del irradiance
@@ -314,3 +391,36 @@ class Star(object):
             Intensity relative to the intensity at the center of the disk.
         """
         return self.limb_darkening(r) / self.limb_darkening(0)
+
+    def rotate(self, angle):
+        """
+        Rotate the star, by moving the spots.
+
+        Parameters
+        ----------
+        angle : `~astropy.units.Quantity`
+
+        """
+        remove_is = rotation_matrix(-self.inclination, axis='x')
+        rotate = rotation_matrix(angle, axis='z')
+        add_is = rotation_matrix(self.inclination, axis='x')
+
+        transform_matrix = matrix_product(remove_is, rotate, add_is)
+
+        for spot in self.spots:
+            cartesian = CartesianRepresentation(x=spot.x, y=spot.y, z=spot.z
+                                                ).transform(transform_matrix)
+            spot.x = cartesian.x.value
+            spot.y = cartesian.y.value
+            spot.z = cartesian.z.value
+        self.rotations_applied += angle
+
+    def derotate(self):
+        self.rotate(-self.rotations_applied)
+        self.rotations_applied = 0
+
+
+# rotate_about_z = rotation_matrix(90*u.deg, axis='z')
+# rotate_is = rotation_matrix(stellar_inclination*u.deg, axis='y')
+# transform_matrix = matrix_product(rotate_about_z, rotate_is)
+# cartesian = cartesian.transform(transform_matrix)

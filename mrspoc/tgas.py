@@ -27,6 +27,9 @@ hipparcos_path = os.path.join(os.path.abspath(data_dir_path),
 boyajian_path = os.path.join(os.path.abspath(data_dir_path),
                              'boyajian2012.csv')
 
+mamajek_path = os.path.join(os.path.abspath(data_dir_path),
+                            'spt_mamajek.txt')
+
 
 def get_table_ms(plot=True, ax=None):
     """
@@ -68,7 +71,7 @@ def get_table_ms(plot=True, ax=None):
 
     parallax_mas = table['Plx']
     Vmag = table['VTmag']
-    b_minus_v = table['BTmag'] - table['VTmag']
+    bt_minus_vt = table['BTmag'] - table['VTmag']
 
     parallax_arcsec = parallax_mas / 1000
     dist_pc = 1. / parallax_arcsec
@@ -80,16 +83,17 @@ def get_table_ms(plot=True, ax=None):
     table.add_column(Column(data=dist_pc * u.pc, name='distance'))
 
     # Add a Nfov column to the table:
-    table.add_column(Column(data=Nprime_fov(abs_galactic_latitude), name='N_fov'))
+    table.add_column(Column(data=Nprime_fov(abs_galactic_latitude),
+                            name='N_fov'))
 
     M_V = Vmag - 5 * (np.log10(dist_pc) + 1)
 
     b_minus_v_lower = 0.6  # 0.64  # (B-V)_sun = 0.65
     b_minus_v_upper = 2
 
-    main_sequence = ((np.abs(M_V - color_cut(b_minus_v)) < 1.) &
-                     (b_minus_v > b_minus_v_lower) &
-                     (b_minus_v < b_minus_v_upper))
+    main_sequence = ((np.abs(M_V - color_cut(bt_minus_vt)) < 1.) &
+                     (bt_minus_vt > b_minus_v_lower) &
+                     (bt_minus_vt < b_minus_v_upper))
 
     main_sequence_table = table[main_sequence]
 
@@ -102,6 +106,13 @@ def get_table_ms(plot=True, ax=None):
 
     main_sequence_color_table = join(main_sequence_table, hipparcos_table,
                                      keys='HIP')
+
+    # Cut again by the color cuts, this time with the real Johnson B and V,
+    # rather than Tycho magnitudes:
+    main_sequence = ((main_sequence_color_table['B-V'].data.data < b_minus_v_upper) &
+                     (main_sequence_color_table['B-V'].data.data > b_minus_v_lower))
+
+    main_sequence_color_table = main_sequence_color_table[main_sequence]
 
     # Add in stellar radii with color-radius relation from Boyajian 2012
     R_star = bv_to_radius(main_sequence_color_table['B-V'].data.data)
@@ -133,6 +144,14 @@ def get_table_ms(plot=True, ax=None):
     refs[boyajian_radii] = 2
     main_sequence_color_table.add_column(Column(data=refs, name='rstar_ref'))
 
+    # Add column containing approximate stellar effective temperatures based
+    # on B-V -> T_eff table from Eric Mamajek:
+    # http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
+    mamajek = ascii.read(mamajek_path, format='commented_header')
+    bv_to_teff = lambda bv: np.interp(bv, mamajek['B-V'], mamajek['Teff'])
+    approx_teffs = bv_to_teff(main_sequence_color_table['B-V'])
+    main_sequence_color_table.add_column(Column(data=approx_teffs, name='Teff'))
+
     if plot:
         if ax is None:
             ax = plt.gca()
@@ -141,8 +160,8 @@ def get_table_ms(plot=True, ax=None):
                      color_cut(2) + 1, color_cut(2) - 1,
                      color_cut(0.6) - 1]
 
-        H, xedges, yedges = np.histogram2d(b_minus_v[abs(b_minus_v) > 1e-3],
-                                           M_V[abs(b_minus_v) > 1e-3],
+        H, xedges, yedges = np.histogram2d(bt_minus_vt[abs(bt_minus_vt) > 1e-3],
+                                           M_V[abs(bt_minus_vt) > 1e-3],
                                            bins=1000)
 
         extent = [xedges.min(), xedges.max(), yedges.max(), yedges.min()]
