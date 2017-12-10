@@ -320,6 +320,7 @@ class Star(object):
         on_star = x**2 + y**2 <= self.r**2
 
         image[on_star] = irradiance[on_star]
+        on_spot = None
 
         for spot in self.spots:
             if spot.z > 0:
@@ -341,7 +342,7 @@ class Star(object):
 
         if delete_arrays_after_use:
             del on_star
-            if len(self.spots) > 0:
+            if on_spot is not None:
                 del on_spot
             del x
             del y
