@@ -53,12 +53,12 @@ x direction. We can see what this star and spot configuration look like with the
 .. plot::
 
     import matplotlib.pyplot as plt
-    from mrspoc import Star
-    star = Star(u1=0.5, u2=0.2)
 
     from mrspoc import Spot
-    spot = Spot(x=0.5, y=0, r=0.1)
-    star.spots.append(spot)
+    spots = [Spot(x=0.5, y=0, r=0.1)]
+
+    from mrspoc import Star
+    star = Star(spots=spots, u1=0.5, u2=0.2)
 
     star.plot(col_exaggerate=100)
     plt.show()

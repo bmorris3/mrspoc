@@ -19,7 +19,8 @@ class Spot(object):
     """
     Properties of a starspot.
     """
-    def __init__(self, x=None, y=None, z=None, r=None, contrast=0.7):
+    def __init__(self, x=None, y=None, z=None, r=None, contrast=0.7,
+                 stellar_radius=1):
         """
         Parameters
         ----------
@@ -27,15 +28,19 @@ class Spot(object):
             X position [stellar radii]
         y : float
             Y position [stellar radii]
+        z : float
+            Z position [stellar radii], default is ``z=sqrt(r_star^2 - x^2 - y^2)``.
         r : float
-            Spot radius [stellar radii]
+            Spot radius [stellar radii], default is ``r=1``.
         contrast : float (optional)
-            Spot contrast relative to photosphere
+            Spot contrast relative to photosphere. Default is ``c=0.7``
+        stellar_radius : float
+            Radius of the star, in the same units as ``x,y,z,r``. Default is 1.
         """
         self.x = x
         self.y = y
         if z is None:
-            z = np.sqrt(r**2 - x**2 - y**2)
+            z = np.sqrt(stellar_radius**2 - x**2 - y**2)
         self.z = z
         self.r = r
         self.contrast = contrast
@@ -419,9 +424,3 @@ class Star(object):
     def derotate(self):
         self.rotate(-self.rotations_applied)
         self.rotations_applied = 0
-
-
-# rotate_about_z = rotation_matrix(90*u.deg, axis='z')
-# rotate_is = rotation_matrix(stellar_inclination*u.deg, axis='y')
-# transform_matrix = matrix_product(rotate_about_z, rotate_is)
-# cartesian = cartesian.transform(transform_matrix)
