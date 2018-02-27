@@ -109,8 +109,8 @@ taking from `Perryman et al. 2014 <http://arxiv.org/abs/1411.1173>`_, this time
 from Equations 1-3::
 
     >>> from mrspoc import sigma_fov
-    >>> sigma_fov(6.5)
+    >>> sigma_fov(6.5)  # doctest: +FLOAT_CMP
     <Quantity 34.2301167881504 uarcsec>
 
-    >>> sigma_fov(15)
+    >>> sigma_fov(15)  # doctest: +FLOAT_CMP
     <Quantity 81.99593485858512 uarcsec>
