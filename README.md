@@ -37,3 +37,26 @@ And you're good to go! You can run the unit tests with:
 ```bash
 python setup.py test
 ```
+
+Citation
+--------
+If you make use of this code, please cite [Morris et al 2018](http://adsabs.harvard.edu/abs/2018arXiv180209943M):
+```
+@ARTICLE{Morris2018,
+   author = {{Morris}, B.~M. and {Agol}, E. and {Davenport}, J.~R.~A. and 
+	{Hawley}, S.~L.},
+    title = "{Spotting stellar activity cycles in Gaia astrometry}",
+  journal = {\mnras},
+archivePrefix = "arXiv",
+   eprint = {1802.09943},
+ primaryClass = "astro-ph.SR",
+ keywords = {astrometry, Sun: activity, stars: activity, stars: individual: GJ 1243, stars: individual: KIC 7174505, stars: individual: AX Mic},
+     year = 2018,
+    month = jun,
+   volume = 476,
+    pages = {5408-5416},
+      doi = {10.1093/mnras/sty568},
+   adsurl = {http://adsabs.harvard.edu/abs/2018MNRAS.476.5408M},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
